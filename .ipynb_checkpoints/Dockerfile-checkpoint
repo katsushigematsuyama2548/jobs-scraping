@@ -1,0 +1,37 @@
+# ベースイメージとしてPython 3.9のslimバリアントを使用
+FROM python:3.9-slim
+
+# 環境変数を設定
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 必要なパッケージのインストール
+RUN apt-get update && apt-get install -y \
+    curl \
+    unzip \
+    wget \
+    gnupg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Google ChromeのGPGキーを追加し、リポジトリを追加
+RUN mkdir -p /etc/apt/keyrings \
+    && curl -sSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg \
+    && echo "deb [arch=arm64 signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
+    && apt-get update && apt-get install -y google-chrome-stable
+
+# ChromeDriverのダウンロードとインストール
+RUN CHROME_VERSION=$(google-chrome --version | awk '{print $3}') \
+    && CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_VERSION") \
+    && wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip" \
+    && unzip /tmp/chromedriver.zip -d /usr/local/bin/ \
+    && rm /tmp/chromedriver.zip \
+    && chmod +x /usr/local/bin/chromedriver
+
+# Pythonパッケージのインストール
+RUN pip install --upgrade pip \
+    && pip install jupyterlab selenium
+
+# Jupyter Notebookのポートを開く
+EXPOSE 8888
+
+# Jupyter Notebookを起動する
+CMD ["jupyter", "notebook", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root"]
